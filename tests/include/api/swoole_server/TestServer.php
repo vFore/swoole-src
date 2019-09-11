@@ -23,7 +23,7 @@ abstract class TestServer
     protected $count = 0;
     protected $show_lost_package = false;
 
-    const PKG_NUM = 100000;
+    const PKG_NUM = 10000;
     const LEN_MIN = 0;
     const LEN_MAX = 200;
 
@@ -34,10 +34,10 @@ abstract class TestServer
 
     abstract function onReceive($serv, $fd, $reactor_id, $data);
 
-    function __construct($base = false)
+    function __construct(int $port, bool $base = false)
     {
         $mode = $base ? SWOOLE_BASE : SWOOLE_PROCESS;
-        $serv = new swoole_server("127.0.0.1", 9501, $mode);
+        $serv = new swoole_server('127.0.0.1', $port, $mode);
         $serv->on('Connect', [$this, 'onConnect']);
         $serv->on('receive', [$this, '_receive']);
         $serv->on('workerStart', [$this, 'onWorkerStart']);
@@ -45,23 +45,23 @@ abstract class TestServer
         $this->serv = $serv;
     }
 
-    function onConnect($serv, $fd, $from_id)
+    function onConnect($serv, $fd, $reactor_id)
     {
 
     }
 
-    function _receive($serv, $fd, $from_id, $data)
+    function _receive($serv, $fd, $reactor_id, $data)
     {
         $this->count++;
         $this->recv_bytes += strlen($data);
-        $this->onReceive($serv, $fd, $from_id, $data);
+        $this->onReceive($serv, $fd, $reactor_id, $data);
         if ($this->count == self::PKG_NUM)
         {
             $serv->send($fd, "end\n");
         }
     }
 
-    function onClose($serv, $fd, $from_id)
+    function onClose($serv, $fd, $reactor_id)
     {
         echo "Total count={$this->count}, bytes={$this->recv_bytes}\n";
         if ($this->show_lost_package)

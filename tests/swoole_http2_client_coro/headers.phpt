@@ -4,7 +4,7 @@ swoole_http2_client_coro: http2 headers auto to lower
 <?php require __DIR__ . '/../include/skipif.inc'; ?>
 --FILE--
 <?php
-require_once __DIR__ . '/../include/bootstrap.php';
+require __DIR__ . '/../include/bootstrap.php';
 go(function () {
     $domain = 'www.swoole.com';
     $cli = new Swoole\Coroutine\Http2\Client($domain, 443, true);
@@ -14,19 +14,25 @@ go(function () {
     ]);
     $cli->connect();
 
-    $req = new Swoole\Coroutine\Http2\Request;
-    $req->path = "/";
+    $req = new Swoole\Http2\Request;
+    $req->path = '/';
     // auto to-lower
     $req->headers = [
         'Host' => $domain,
-        "User-Agent" => 'Chrome/49.0.2587.3',
+        'User-Agent' => 'Chrome/49.0.2587.3',
         'Accept' => 'text/html,application/xhtml+xml,application/xml',
         'Accept-encoding' => 'gzip',
     ];
-    assert($cli->send($req));
-    $response = $cli->recv();
-    echo $response->statusCode;
+    for ($n = 5; $n--;) {
+        Assert::assert($cli->send($req));
+        $response = $cli->recv();
+        echo "{$response->statusCode}\n";
+    }
 });
 ?>
 --EXPECT--
+200
+200
+200
+200
 200

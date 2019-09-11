@@ -1,45 +1,37 @@
 --TEST--
 swoole_client_async: swoole_client getsockname
-
 --SKIPIF--
-<?php require  __DIR__ . '/../include/skipif.inc'; ?>
---INI--
-assert.active=1
-assert.warning=1
-assert.bail=0
-assert.quiet_eval=0
-
-
+<?php require __DIR__ . '/../include/skipif.inc'; ?>
 --FILE--
 <?php
-require_once __DIR__ . '/../include/bootstrap.php';
+require __DIR__ . '/../include/bootstrap.php';
 
 $simple_tcp_server = __DIR__ . "/../include/api/swoole_server/simple_server.php";
 start_server($simple_tcp_server, TCP_SERVER_HOST, TCP_SERVER_PORT);
 
-suicide(5000);
-
+$timer = suicide(5000);
 
 $cli = new \swoole_client(SWOOLE_SOCK_TCP, SWOOLE_SOCK_ASYNC);
 
-$cli->on("connect", function(swoole_client $cli) {
-    assert($cli->isConnected() === true);
+$cli->on("connect", function (swoole_client $cli) use ($timer) {
+    Assert::true($cli->isConnected());
 
     $i = $cli->getsockname();
-    assert($i !== false);
-    assert($i["host"] === "127.0.0.1");
+    Assert::assert($i !== false);
+    Assert::same($i["host"], '127.0.0.1');
 
     $cli->close();
+    swoole_timer::clear($timer);
 });
 
-$cli->on("receive", function(swoole_client $cli, $data){
+$cli->on("receive", function (swoole_client $cli, $data) {
 });
 
-$cli->on("error", function(swoole_client $cli) {
+$cli->on("error", function (swoole_client $cli) {
     echo "error";
 });
 
-$cli->on("close", function(swoole_client $cli) {
+$cli->on("close", function (swoole_client $cli) {
     echo "SUCCESS";
     swoole_event_exit();
 });
@@ -47,6 +39,5 @@ $cli->on("close", function(swoole_client $cli) {
 $cli->connect(TCP_SERVER_HOST, TCP_SERVER_PORT, 1);
 Swoole\Event::wait();
 ?>
-
 --EXPECT--
 SUCCESS

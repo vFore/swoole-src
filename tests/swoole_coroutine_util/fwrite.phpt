@@ -4,7 +4,7 @@ swoole_coroutine_util: fwrite
 <?php require __DIR__ . '/../include/skipif.inc'; ?>
 --FILE--
 <?php
-require_once __DIR__ . '/../include/bootstrap.php';
+require __DIR__ . '/../include/bootstrap.php';
 
 use Swoole\Coroutine as co;
 
@@ -17,7 +17,7 @@ co::create(function () {
         $ret = co::fwrite($fp, $data);
         if ($ret)
         {
-            assert(md5($data) == md5_file($file));
+            Assert::same(md5($data), md5_file($file));
             unlink($file);
 
             return;

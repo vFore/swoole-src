@@ -4,7 +4,7 @@ swoole_http_server: http server data parse test
 <?php require __DIR__ . '/../include/skipif.inc'; ?>
 --FILE--
 <?php
-require_once __DIR__ . '/../include/bootstrap.php';
+require __DIR__ . '/../include/bootstrap.php';
 
 function getRandomData(int $num): array
 {
@@ -32,7 +32,7 @@ function arrayToMultipartString(array $var, string $boundary): string
 
 function sendData(string $host, int $port, array $get, array $post): string
 {
-    $client = new swoole_client(SWOOLE_SOCK_TCP);
+    $client = new Co\Client(SWOOLE_SOCK_TCP);
     if (!$client->connect($host, $port, 1)) {
         exit("connect failed. Error: {$client->errCode}\n");
     }
@@ -75,32 +75,40 @@ Content-Length: {$content_length}{$CR}
 {$post}
 HTTP;
 
-    $client->send($data);
-    return $client->recv();
+    Assert::assert($client->send($data));
+    $data = '';
+    while ($tmp = $client->recv()) {
+        $data .= $tmp;
+    }
+    return $data;
 }
 
 $pm = new ProcessManager;
-$pm->parentFunc = function ($pid) {
-    foreach (range(1, 100) as $_) {
-        $get = getRandomData(50);
-        $post = getRandomData(100);
-        $ret = sendData('127.0.0.1', 9501, $get, $post);
-        list($_, $body) = explode("\r\n\r\n", $ret);
-        assert($body === var_dump_return($get, $post));
+$pm->parentFunc = function () use ($pm) {
+    for ($c = MAX_CONCURRENCY; $c--;) {
+        go(function () use ($pm) {
+            $get = getRandomData(50);
+            $post = getRandomData(100);
+            $ret = sendData('127.0.0.1', $pm->getFreePort(), $get, $post);
+            list($_, $body) = explode("\r\n\r\n", $ret);
+            Assert::same($body, var_dump_return($get, $post));
+        });
     }
-
-    swoole_process::kill($pid);
+    Swoole\Event::wait();
+    $pm->kill();
+    echo "DONE\n";
 };
 
 $pm->childFunc = function () use ($pm) {
-    $http = new swoole_http_server("127.0.0.1", 9501, SWOOLE_BASE);
+    $http = new swoole_http_server('127.0.0.1', $pm->getFreePort(), SWOOLE_BASE);
     $http->set(['log_file' => '/dev/null']);
     $http->on("WorkerStart", function ($serv, $wid) {
         global $pm;
         $pm->wakeup();
     });
-    $http->on("request", function (swoole_http_request $request, swoole_http_response $response) {
+    $http->on("request", function (swoole_http_request $request, swoole_http_response $response) use ($http) {
         $response->end(var_dump_return($request->get, $request->post));
+        $http->close($request->fd);
     });
     $http->start();
 };
@@ -109,3 +117,4 @@ $pm->childFirst();
 $pm->run();
 ?>
 --EXPECT--
+DONE

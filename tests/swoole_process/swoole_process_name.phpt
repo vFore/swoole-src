@@ -4,29 +4,23 @@ swoole_process: name
 <?php
 require __DIR__ . '/../include/skipif.inc';
 skip_if_darwin();
+skip_if_in_valgrind();
 ?>
---INI--
-assert.active=1
-assert.warning=1
-assert.bail=0
-assert.quiet_eval=0
-
-
 --FILE--
 <?php
-require_once __DIR__ . '/../include/bootstrap.php';
+require __DIR__ . '/../include/bootstrap.php';
 
 $name = "SWOOLE_PROCESS_TEST_" . rand(1, 100);
 
-$proc = new \swoole_process(function($childProc) { 
-	global $name;
-	$childProc->name($name);
-	sleep(PHP_INT_MAX); 
+$proc = new \swoole_process(function ($childProc) {
+    global $name;
+    $childProc->name($name);
+    sleep(PHP_INT_MAX);
 });
 
 $pid = $proc->start();
-$count = trim(`ps aux|grep $name|grep -v grep|wc -l`);
-assert($count == 1);
+$count = (int)trim(`ps aux|grep $name|grep -v grep|wc -l`);
+Assert::same($count, 1);
 \swoole_process::kill($pid, SIGKILL);
 
 \swoole_process::wait(true);

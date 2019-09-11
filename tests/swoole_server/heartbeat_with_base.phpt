@@ -1,38 +1,33 @@
 --TEST--
 swoole_server: heart beat with SWOOLE_BASE
 --SKIPIF--
-<?php require __DIR__ . '/../include/skipif.inc'; ?>
---INI--
-assert.active=1
-assert.warning=1
-assert.bail=0
-assert.quiet_eval=0
-
+<?php
+require __DIR__ . '/../include/skipif.inc';
+skip_if_in_valgrind();
+?>
 --FILE--
 <?php
-require_once __DIR__ . '/../include/bootstrap.php';
-
-$port = get_one_free_port();
+require __DIR__ . '/../include/bootstrap.php';
 
 $pm = new ProcessManager;
-$pm->parentFunc = function ($pid) use ($port)
+$pm->parentFunc = function ($pid) use ($pm)
 {
     $client = new swoole_client(SWOOLE_SOCK_TCP, SWOOLE_SOCK_SYNC);
-    if (!$client->connect('127.0.0.1', 9501, 5, 0))
+    if (!$client->connect('127.0.0.1', $pm->getFreePort(), 5, 0))
     {
         echo "Over flow. errno=" . $client->errCode;
         die("\n");
     }
     $s1 = time();
-    assert($client->recv() === '');
+    Assert::same($client->recv(), '');
     $s2 = time();
-    assert($s2 - $s1 > 1);
+    Assert::assert($s2 - $s1 > 1);
     swoole_process::kill($pid);
 };
 
-$pm->childFunc = function () use ($pm, $port)
+$pm->childFunc = function () use ($pm)
 {
-    $serv = new swoole_server("127.0.0.1", 9501, SWOOLE_BASE);
+    $serv = new swoole_server('127.0.0.1', $pm->getFreePort(), SWOOLE_BASE);
     $serv->set(array(
         'heartbeat_check_interval' => 1,
         'heartbeat_idle_time' => 2,
@@ -51,4 +46,3 @@ $pm->childFirst();
 $pm->run();
 ?>
 --EXPECT--
-

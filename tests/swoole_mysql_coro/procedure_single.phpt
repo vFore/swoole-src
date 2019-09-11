@@ -4,11 +4,12 @@ swoole_mysql_coro: mysql procedure single
 <?php require __DIR__ . '/../include/skipif.inc'; ?>
 --FILE--
 <?php
-require_once __DIR__ . '/../include/bootstrap.php';
+require __DIR__ . '/../include/bootstrap.php';
 go(function () {
     $db = new Swoole\Coroutine\Mysql;
     $server = [
         'host' => MYSQL_SERVER_HOST,
+        'port' => MYSQL_SERVER_PORT,
         'user' => MYSQL_SERVER_USER,
         'password' => MYSQL_SERVER_PWD,
         'database' => MYSQL_SERVER_DB
@@ -27,10 +28,15 @@ SQL;
     $db->connect($server);
     if ($db->query($clear) && $db->query($procedure)) {
         $stmt = $db->prepare('CALL say(?)');
-        $ret = $stmt->execute(['hello mysql!']);
-        echo current($ret[0]); // You said: "hello mysql!"
+        for ($n = MAX_REQUESTS; $n--;) {
+            $ret = $stmt->execute(['hello mysql!']);
+            Assert::same(current($ret[0]), 'You said: "hello mysql!"');
+            Assert::null($stmt->nextResult());
+        }
     }
 });
+Swoole\Event::wait();
+echo "DONE\n";
 ?>
 --EXPECT--
-You said: "hello mysql!"
+DONE

@@ -25,7 +25,7 @@ swArray *swArray_new(int page_size, size_t item_size)
     swArray *array = sw_malloc(sizeof(swArray));
     if (array == NULL)
     {
-        swoole_error_log(SW_LOG_ERROR, SW_ERROR_MALLOC_FAIL, "malloc[0] failed.");
+        swoole_error_log(SW_LOG_ERROR, SW_ERROR_MALLOC_FAIL, "malloc[0] failed");
         return NULL;
     }
     bzero(array, sizeof(swArray));
@@ -34,7 +34,7 @@ swArray *swArray_new(int page_size, size_t item_size)
     if (array->pages == NULL)
     {
         sw_free(array);
-        swoole_error_log(SW_LOG_ERROR, SW_ERROR_MALLOC_FAIL, "malloc[1] failed.");
+        swoole_error_log(SW_LOG_ERROR, SW_ERROR_MALLOC_FAIL, "malloc[1] failed");
         return NULL;
     }
 
@@ -47,7 +47,7 @@ swArray *swArray_new(int page_size, size_t item_size)
 }
 
 /**
- * Destory the array
+ * Destroy the array
  */
 void swArray_free(swArray *array)
 {
@@ -73,7 +73,7 @@ int swArray_extend(swArray *array)
     array->pages[array->page_num] = sw_calloc(array->page_size, array->item_size);
     if (array->pages[array->page_num] == NULL)
     {
-        swWarn("malloc[1] failed.");
+        swWarn("malloc[1] failed");
         return SW_ERR;
     }
     array->page_num++;
@@ -90,7 +90,7 @@ void *swArray_fetch(swArray *array, uint32_t n)
     {
         return NULL;
     }
-    return array->pages[page] + (swArray_offset(array, n) * array->item_size);
+    return (char*) array->pages[page] + (swArray_offset(array, n) * array->item_size);
 }
 
 /**
@@ -106,7 +106,7 @@ int swArray_append(swArray *array, void *data)
         return SW_ERR;
     }
     array->item_num++;
-    memcpy(array->pages[page] + (swArray_offset(array, n) * array->item_size), data, array->item_size);
+    memcpy((char*) array->pages[page] + (swArray_offset(array, n) * array->item_size), data, array->item_size);
     return n;
 }
 
@@ -119,7 +119,7 @@ int swArray_store(swArray *array, uint32_t n, void *data)
         swWarn("fetch index[%d] out of array", n);
         return SW_ERR;
     }
-    memcpy(array->pages[page] + (swArray_offset(array, n) * array->item_size), data, array->item_size);
+    memcpy((char*) array->pages[page] + (swArray_offset(array, n) * array->item_size), data, array->item_size);
     return SW_OK;
 }
 
@@ -139,7 +139,7 @@ void *swArray_alloc(swArray *array, uint32_t n)
         swWarn("fetch index[%d] out of array", n);
         return NULL;
     }
-    return array->pages[page] + (swArray_offset(array, n) * array->item_size);
+    return (char*) array->pages[page] + (swArray_offset(array, n) * array->item_size);
 }
 
 void swArray_clear(swArray *array)

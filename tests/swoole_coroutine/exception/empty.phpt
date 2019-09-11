@@ -1,10 +1,10 @@
 --TEST--
-swoole_coroutine: IO empty Exception
+swoole_coroutine/exception: IO empty Exception
 --SKIPIF--
 <?php require  __DIR__ . '/../../include/skipif.inc'; ?>
 --FILE--
 <?php
-require_once __DIR__ . '/../../include/bootstrap.php';
+require __DIR__ . '/../../include/bootstrap.php';
 
 go(function () {
     try {
@@ -16,8 +16,8 @@ go(function () {
         echo "finally.\n";
     }
 });
-    echo "end\n";
-    
+echo "end\n";
+
 ?>
 --EXPECT--
 start

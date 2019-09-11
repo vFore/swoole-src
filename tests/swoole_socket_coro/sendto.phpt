@@ -1,11 +1,10 @@
 --TEST--
-swoole_socket_coro: accept
+swoole_socket_coro: sendto
 --SKIPIF--
 <?php require __DIR__ . '/../include/skipif.inc'; ?>
 --FILE--
 <?php
-require_once __DIR__ . '/../include/bootstrap.php';
-require_once __DIR__ . '/../include/lib/curl.php';
+require __DIR__ . '/../include/bootstrap.php';
 
 const N = 5;
 //Server

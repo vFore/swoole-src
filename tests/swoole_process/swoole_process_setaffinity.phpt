@@ -1,23 +1,19 @@
 --TEST--
 swoole_process: setaffinity
 --SKIPIF--
-<?php require __DIR__ . '/../include/skipif.inc'; ?>
---INI--
-assert.active=1
-assert.warning=1
-assert.bail=0
-assert.quiet_eval=0
-
-
+<?php
+require __DIR__ . '/../include/skipif.inc';
+skip_if_no_process_affinity();
+?>
 --FILE--
 <?php
-require_once __DIR__ . '/../include/bootstrap.php';
-
-$r = \swoole_process::setaffinity([0]);
-assert($r);
-
-$r = \swoole_process::setaffinity([0, 1]);
-assert($r);
+require __DIR__ . '/../include/bootstrap.php';
+$r = Swoole\Process::setaffinity([0]);
+Assert::assert($r);
+if (swoole_cpu_num() > 1) {
+    $r = Swoole\Process::setaffinity([0, 1]);
+    Assert::assert($r);
+}
 echo "SUCCESS";
 ?>
 --EXPECT--

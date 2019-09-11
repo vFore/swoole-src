@@ -4,65 +4,57 @@ swoole_client_coro: timeout of udp client
 <?php require __DIR__ . '/../include/skipif.inc'; ?>
 --FILE--
 <?php
-require_once __DIR__ . '/../include/bootstrap.php';
-require_once __DIR__ . '/../include/lib/curl.php';
+require __DIR__ . '/../include/bootstrap.php';
+$port = get_one_free_port();
 
-$pm = new ProcessManager;
+$cid = go(function () use ($port) {
+    $socket = new Swoole\Coroutine\Socket(AF_INET, SOCK_DGRAM, 0);
+    $socket->bind('127.0.0.1', $port);
+    $peer = null;
+    $socket->recvfrom($peer);
+    echo "recvfrom client\n";
+});
 
-$pm->parentFunc = function ($pid)
-{
-    $data = curlGet("http://127.0.0.1:9501/");
-    echo $data;
-    swoole_process::kill($pid);
-};
+go(function () use ($port) {
+    co::set([
+        'socket_connect_timeout' => 0.5,
+        'socket_timeout' => 0.1
+    ]);
 
+    $cli = new Swoole\Coroutine\Client(SWOOLE_SOCK_UDP);
+    if (!Assert::assert($cli->connect('127.0.0.1', $port))) {
+        return;
+    }
 
-$pm->childFunc = function () use ($pm)
-{
-    $http = new swoole_http_server("127.0.0.1", 9501, SWOOLE_BASE);
-    $http->set(array(
-        'log_file' => '/dev/null'
-    ));
-    $http->on("WorkerStart", function (\swoole_server $serv)
-    {
-        /**
-         * @var $pm ProcessManager
-         */
-        global $pm;
-        $pm->wakeup();
-    });
-    $http->on('request', function (swoole_http_request $request, swoole_http_response $response)
-    {
-        $cli = new Swoole\Coroutine\Client(SWOOLE_SOCK_UDP);
-        $begin = time();
-        if (!$cli->connect('127.0.0.1', 9502, 3))
-        {
-            fail:
-            $response->end("ERROR\n");
-            return;
-        }
-        if (!$cli->send("hello"))
-        {
-            goto fail;
-        }
-        $ret = $cli->recv();
-        $interval = time() - $begin;
-        if ($ret !== false)
-        {
-            goto fail;
-        }
-        if ($interval < 3)
-        {
-            goto fail;
-        }
-        $cli->close();
-        $response->end("TIMEOUT\n");
-    });
-    $http->start();
-};
+    Assert::assert($cli->send("hello"));
 
-$pm->childFirst();
-$pm->run();
+    // default timeout
+    $s = microtime(true);
+    $ret = @$cli->recv();
+    $s = microtime(true) - $s;
+    Assert::assert($s > 0.08 && $s < 0.12, $s);
+    Assert::assert(!$ret, var_dump_return($ret));
+
+    // custom timeout
+    $s = microtime(true);
+    $ret = @$cli->recv(0.5);
+    $s = microtime(true) - $s;
+    Assert::assert($s > 0.45 && $s < 0.55, $s);
+    Assert::assert(!$ret, var_dump_return($ret));
+
+    // default timeout
+    $s = microtime(true);
+    $ret = @$cli->recv();
+    $s = microtime(true) - $s;
+    Assert::assert($s > 0.08 && $s < 0.12, $s);
+    Assert::assert(!$ret, var_dump_return($ret));
+
+    $cli->close();
+    echo "TIMEOUT\n";
+});
+
+swoole_event::wait();
 ?>
 --EXPECT--
+recvfrom client
 TIMEOUT

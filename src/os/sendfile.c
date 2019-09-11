@@ -22,7 +22,6 @@
 
 int swoole_sendfile(int out_fd, int in_fd, off_t *offset, size_t size)
 {
-    off_t sent_bytes = 0;
     int ret;
 
 #ifdef __MACH__
@@ -31,41 +30,45 @@ int swoole_sendfile(int out_fd, int in_fd, off_t *offset, size_t size)
     hdtr.hdr_cnt = 0;
     hdtr.trailers = NULL;
     hdtr.trl_cnt = 0;
+#else
+    off_t sent_bytes;
 #endif
 
-    //sent_bytes = (off_t)size;
-    swTrace("send file, out_fd:%d, in_fd:%d, offset:%ld, size:%ld", out_fd, in_fd, (long)*offset, (long)size);
 
-    do_sendfile:
+    _do_sendfile:
 #ifdef __MACH__
-    ret = sendfile(in_fd, out_fd, *offset, (long long *) &size, &hdtr, 0);
+    ret = sendfile(in_fd, out_fd, *offset, (off_t *) &size, &hdtr, 0);
 #else
     ret = sendfile(in_fd, out_fd, *offset, size, 0, &sent_bytes, 0);
 #endif
+
+    //sent_bytes = (off_t)size;
+    swTrace("send file, ret:%d, out_fd:%d, in_fd:%d, offset:%jd, size:%zu", ret, out_fd, in_fd, (intmax_t) *offset, size);
+
+#ifdef __MACH__
+    *offset += size;
+#else
+    *offset += sent_bytes;
+#endif
+
     if (ret == -1)
     {
-        if (errno == EAGAIN)
+        if (errno == EINTR)
         {
-            *offset += sent_bytes;
-            return sent_bytes;
-        }
-        else if (errno == EINTR)
-        {
-            goto do_sendfile;
+            goto _do_sendfile;
         }
         else
         {
-            return -1;
+            return ret;
         }
     }
     else if (ret == 0)
     {
-        *offset += size;
         return size;
     }
     else
     {
-        swWarn("sendfile failed. Error: %s[%d]", strerror(errno), errno);
+        swSysWarn("sendfile failed");
         return SW_ERR;
     }
     return SW_OK;
@@ -84,7 +87,7 @@ int swoole_sendfile(int out_fd, int in_fd, off_t *offset, size_t size)
         ret = write(out_fd, buf, n);
         if (ret < 0)
         {
-            swSysError("write() failed.");
+            swSysWarn("write() failed");
         }
         else
         {
@@ -94,7 +97,7 @@ int swoole_sendfile(int out_fd, int in_fd, off_t *offset, size_t size)
     }
     else
     {
-        swSysError("pread() failed.");
+        swSysWarn("pread() failed");
         return SW_ERR;
     }
 }

@@ -2,7 +2,7 @@
 
 require_once __DIR__ . "/../../../include/bootstrap.php";
 
-//(new OpcodeServer("127.0.0.1", 9999, 9998, 9997))->start(PHP_INT_MAX);
+//(new OpcodeServer('127.0.0.1', 9999, 9998, 9997))->start(PHP_INT_MAX);
 
 $host = isset($argv[1]) ? $argv[1] : null;
 $port = isset($argv[2]) ? $argv[2] : null;
@@ -30,7 +30,7 @@ class OpcodeServer
         ]);
 
         $this->swooleServer->on("receive", function(\swoole_server $server, $fd, $fromReactorId, $recv) use($port) {
-            assert(intval($recv) === $port);
+            Assert::same(intval($recv), $port);
             $r = $server->send($fd, opcode_encode("return", $port));
             assert($r !== false);
         });
@@ -45,7 +45,7 @@ class OpcodeServer
         ]);
 
         $serv1->on("receive", function(\swoole_server $server, $fd, $fromReactorId, $recv) use($port1) {
-            assert(intval($recv) === $port1);
+            Assert::same(intval($recv), $port1);
             $r = $server->send($fd, opcode_encode("return", $port1));
             assert($r !== false);
         });
@@ -61,7 +61,7 @@ class OpcodeServer
 
 
         $serv2->on("receive", function(\swoole_server $server, $fd, $fromReactorId, $recv) use($port2) {
-            assert(intval($recv) === $port2);
+            Assert::same(intval($recv), $port2);
             $r = $server->send($fd, opcode_encode("return", $port2));
             assert($r !== false);
         });

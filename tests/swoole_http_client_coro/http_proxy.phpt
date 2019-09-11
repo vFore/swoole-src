@@ -3,35 +3,25 @@ swoole_http_client_coro: http client with http_proxy
 --SKIPIF--
 <?php
 require __DIR__ . '/../include/skipif.inc';
-skip_if_no_proxy();
+skip_if_no_http_proxy();
 ?>
 --FILE--
 <?php
-require_once __DIR__ . '/../include/bootstrap.php';
-
-use Swoole\Coroutine as co;
-
-$pm = new ProcessManager;
-$pm->parentFunc = function ($pid) {
-    co::create(function () {
-        $cli = new co\http\client('127.0.0.1', 9501);
-        $cli->setHeaders(['Host' => 'localhost']);
-        $cli->set(['http_proxy_host' => HTTP_PROXY_HOST, 'http_proxy_port' => HTTP_PROXY_PORT]);
-        $result = $cli->get('/get?json=true');
-        assert($result);
-        $ret = json_decode($cli->body, true);
-        assert(is_array($ret) and $ret['json'] == 'true');
-    });
-
-    swoole_event::wait();
-    swoole_process::kill($pid);
-};
-
-$pm->childFunc = function () use ($pm) {
-    include __DIR__ . "/../include/api/http_server.php";
-};
-
-$pm->childFirst();
-$pm->run();
+require __DIR__ . '/../include/bootstrap.php';
+go(function () {
+    $domain = 'www.qq.com';
+    $cli = new Swoole\Coroutine\Http\Client($domain, 443, true);
+    // $cli->setHeaders(['Host' => $domain]); // without host header it can also work well
+    $cli->set([
+        'timeout' => 30,
+        'http_proxy_host' => HTTP_PROXY_HOST,
+        'http_proxy_port' => HTTP_PROXY_PORT
+    ]);
+    $result = $cli->get('/');
+    Assert::assert($result);
+    Assert::assert(stripos($cli->body, 'tencent') !== false);
+    echo "DONE\n";
+});
 ?>
 --EXPECT--
+DONE

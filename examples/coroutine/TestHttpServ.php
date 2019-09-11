@@ -69,8 +69,8 @@ class TestHttpServer {
 			$tcp->on("close", function(swoole_client $cli){
 			});
 			$tcp->on("error", function(swoole_client $cli){
-			});			
-			$tcp->connect('10.100.64.151', 9805);		
+			});
+			$tcp->connect('10.100.64.151', 9805);
 
 		// });
 		// $udp->on("close", function(swoole_client $cli){
@@ -83,12 +83,12 @@ class TestHttpServer {
 	 * [onClose description]
 	 * @param  [type] $server  [description]
 	 * @param  [type] $fd      [description]
-	 * @param  [type] $from_id [description]
+	 * @param  [type] $reactor_id [description]
 	 * @return [type]          [description]
 	 */
-	public function onClose($server, $fd, $from_id){
-		
-		//echo " on close fd = $fd from_id = $from_id \n";
+	public function onClose($server, $fd, $reactor_id){
+
+		//echo " on close fd = $fd reactor_id = $reactor_id \n";
 	}
 
 	/**
@@ -110,7 +110,7 @@ $setting = array(
 		'reactor_num' => 4,     //亲核
 		'daemonize' => 1,       //守护进程
 		'backlog' => 128,
-		'log_file' => '/data/log/test_http_server.log', 
+		'log_file' => '/data/log/test_http_server.log',
 );
 $th = new TestHttpServer();
 $th ->set($setting);

@@ -23,17 +23,12 @@ function my_onShutdown($serv)
     echo "Server: onShutdown\n";
 }
 
-function my_onTimer($serv, $interval)
-{
-    echo "Server:Timer Call.Interval=$interval\n";
-}
-
-function my_onClose($serv, $fd, $from_id)
+function my_onClose($serv, $fd, $reactor_id)
 {
     //echo "Client: fd=$fd is closed.\n";
 }
 
-function my_onConnect($serv, $fd, $from_id)
+function my_onConnect($serv, $fd, $reactor_id)
 {
     //throw new Exception("hello world");
 //  echo "Client:Connect.\n";
@@ -56,7 +51,7 @@ function my_onWorkerStop($serv, $worker_id)
     echo "WorkerStop[$worker_id]|pid=".posix_getpid().".\n";
 }
 
-function my_onReceive(swoole_server $serv, $fd, $from_id, $rdata)
+function my_onReceive(swoole_server $serv, $fd, $reactor_id, $rdata)
 {
     $data = unserialize($rdata);
     if (isset($data['cmd']))
@@ -84,7 +79,7 @@ function my_onReceive(swoole_server $serv, $fd, $from_id, $rdata)
     }
 }
 
-function my_onTask(swoole_server $serv, $task_id, $from_id, $data)
+function my_onTask(swoole_server $serv, $task_id, $reactor_id, $data)
 {
     static $datas = array();
     if (isset($data['cmd']))
@@ -97,7 +92,7 @@ function my_onTask(swoole_server $serv, $task_id, $from_id, $data)
                 break;
             case "set":
                 $key = $data['key'];
-                $val = $data['val']."_".$from_id;
+                $val = $data['val']."_".$reactor_id;
                 $datas[$key] = $val;
                 return;
                 break;
@@ -132,11 +127,9 @@ $serv->on('Connect', 'my_onConnect');
 $serv->on('Receive', 'my_onReceive');
 $serv->on('Close', 'my_onClose');
 $serv->on('Shutdown', 'my_onShutdown');
-$serv->on('Timer', 'my_onTimer');
 $serv->on('WorkerStart', 'my_onWorkerStart');
 $serv->on('WorkerStop', 'my_onWorkerStop');
 $serv->on('Task', 'my_onTask');
 $serv->on('Finish', 'my_onFinish');
 $serv->on('WorkerError', 'my_onWorkerError');
 $serv->start();
-

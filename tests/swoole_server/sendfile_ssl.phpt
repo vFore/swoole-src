@@ -2,22 +2,15 @@
 swoole_server: sendfile with SSL
 --SKIPIF--
 <?php require __DIR__ . '/../include/skipif.inc'; ?>
---INI--
-assert.active=1
-assert.warning=1
-assert.bail=0
-assert.quiet_eval=0
-
-
 --FILE--
 <?php
-require_once __DIR__ . '/../include/bootstrap.php';
+require __DIR__ . '/../include/bootstrap.php';
 
 $pm = new ProcessManager;
 
 $pm->parentFunc = function ($pid) use ($pm) {
     $client = new swoole_client(SWOOLE_SOCK_TCP | SWOOLE_SSL, SWOOLE_SOCK_SYNC); //同步阻塞
-    if (!$client->connect('127.0.0.1', 9501))
+    if (!$client->connect('127.0.0.1', $pm->getFreePort()))
     {
         exit("connect failed\n");
     }
@@ -41,13 +34,13 @@ $pm->parentFunc = function ($pid) use ($pm) {
         $bytes += strlen($r);
         $data .= $r;
     }
-    assert($bytes == $N);
-    assert(md5_file(TEST_IMAGE) == md5($data));
+    Assert::same($bytes, $N);
+    Assert::same(md5_file(TEST_IMAGE), md5($data));
     $pm->kill();
 };
 
 $pm->childFunc = function () use ($pm) {
-    $serv = new swoole_server("127.0.0.1", 9501, SWOOLE_BASE, SWOOLE_SOCK_TCP | SWOOLE_SSL);
+    $serv = new swoole_server('127.0.0.1', $pm->getFreePort(), SWOOLE_BASE, SWOOLE_SOCK_TCP | SWOOLE_SSL);
     $serv->set([
         //'log_file' => '/dev/null',
         'kernel_socket_send_buffer_size' => 65536,
@@ -60,12 +53,11 @@ $pm->childFunc = function () use ($pm) {
     $serv->on('connect', function (swoole_server $serv, $fd) {
         $serv->sendfile($fd, TEST_IMAGE);
     });
-    $serv->on('receive', function ($serv, $fd, $from_id, $data) {
+    $serv->on('receive', function ($serv, $fd, $reactor_id, $data) {
 
     });
     $serv->start();
 };
-
 
 $pm->childFirst();
 $pm->run();

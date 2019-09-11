@@ -2,16 +2,9 @@
 swoole_server: connection iterator
 --SKIPIF--
 <?php require __DIR__ . '/../include/skipif.inc'; ?>
---INI--
-assert.active=1
-assert.warning=1
-assert.bail=0
-assert.quiet_eval=0
-
-
 --FILE--
 <?php
-require_once __DIR__ . '/../include/bootstrap.php';
+require __DIR__ . '/../include/bootstrap.php';
 const N = 10;
 
 global $count;
@@ -31,7 +24,7 @@ $pm->parentFunc = function ($pid) use ($port)
         });
         $cli->on("receive", function (swoole_client $cli, $data)
         {
-            assert($data == "OK");
+            Assert::same($data, "OK");
             global $count;
             $count ++;
             $cli->close();
@@ -44,16 +37,16 @@ $pm->parentFunc = function ($pid) use ($port)
         {
 
         });
-        $cli->connect("127.0.0.1", $port, 0.1);
+        $cli->connect('127.0.0.1', $port, 0.1);
     }
     swoole_event::wait();
-    assert($count == N);
+    Assert::same($count, N);
     swoole_process::kill($pid);
 };
 
 $pm->childFunc = function () use ($pm, $port)
 {
-    $serv = new swoole_server("127.0.0.1", $port, SWOOLE_BASE);
+    $serv = new swoole_server('127.0.0.1', $port, SWOOLE_BASE);
     $serv->set(array(
         "worker_num" => 1,
         'log_file' => '/dev/null',

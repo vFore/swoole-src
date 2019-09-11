@@ -2,19 +2,12 @@
 swoole_client_async: length protocol [async]
 --SKIPIF--
 <?php require __DIR__ . '/../include/skipif.inc'; ?>
---INI--
-assert.active=1
-assert.warning=1
-assert.bail=0
-assert.quiet_eval=0
-
-
 --FILE--
 <?php
-require_once __DIR__ . '/../include/bootstrap.php';
+require __DIR__ . '/../include/bootstrap.php';
 
 $pm = new ProcessManager;
-$pm->parentFunc = function ($pid)
+$pm->parentFunc = function ($pid) use ($pm)
 {
     $client = new swoole_client(SWOOLE_SOCK_TCP, SWOOLE_SOCK_ASYNC);
     $client->set([
@@ -37,7 +30,7 @@ $pm->parentFunc = function ($pid)
         //小包
         if ($i <= 1000)
         {
-            assert($pkg and strlen($pkg) <= 2048);
+            Assert::assert($pkg and strlen($pkg) <= 2048);
             if ($i == 1000)
             {
                 echo "SUCCESS\n";
@@ -47,7 +40,7 @@ $pm->parentFunc = function ($pid)
         //慢速发送
         elseif ($i <= 1100)
         {
-            assert($pkg and strlen($pkg) <= 8192);
+            Assert::assert($pkg and strlen($pkg) <= 8192);
             if ($i == 1100)
             {
                 echo "SUCCESS\n";
@@ -57,11 +50,11 @@ $pm->parentFunc = function ($pid)
         //大包
         else
         {
-            assert($pkg != false);
+            Assert::assert($pkg != false);
             $_pkg = unserialize(substr($pkg, 4));
-            assert(is_array($_pkg));
-            assert($_pkg['i'] == $i - 1100 - 1);
-            assert($_pkg['data'] <= 256 * 1024);
+            Assert::assert(is_array($_pkg));
+            Assert::same($_pkg['i'], $i - 1100 - 1);
+            Assert::assert($_pkg['data'] <= 256 * 1024);
             if ($i == 2100) {
                 echo "SUCCESS\n";
                 $cli->close();
@@ -78,7 +71,7 @@ $pm->parentFunc = function ($pid)
         swoole_event_exit();
     });
 
-    if (!$client->connect('127.0.0.1', 9501, 0.5, 0))
+    if (!$client->connect('127.0.0.1', $pm->getFreePort(), 0.5, 0))
     {
         echo "Over flow. errno=" . $client->errCode;
         die("\n");
@@ -87,7 +80,7 @@ $pm->parentFunc = function ($pid)
 
 $pm->childFunc = function () use ($pm)
 {
-    $serv = new swoole_server("127.0.0.1", 9501, SWOOLE_BASE);
+    $serv = new swoole_server('127.0.0.1', $pm->getFreePort(), SWOOLE_BASE);
     $serv->set(array(
         "worker_num" => 1,
         'send_yield' => true,

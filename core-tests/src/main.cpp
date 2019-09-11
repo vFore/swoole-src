@@ -1,65 +1,26 @@
-#include <gtest/gtest.h>
-#include "swoole.h"
-#include "coro_test.h"
+#include "tests.h"
+#include "swoole_api.h"
 
-TEST(Coroutine, Create)
+static pid_t create_server()
 {
-    EXPECT_LT(0, swoole_test::coroutine_create_test1());
+    pid_t pid;
+    swoole_shell_exec("php server/tcp.php", &pid, 1);
+    sleep(1); // wait 1s
+    return pid;
 }
-
-TEST(Coroutine, SocketConnect01)
-{
-    swoole_test::coroutine_socket_connect_refused();
-}
-
-TEST(Coroutine, SocketConnect02)
-{
-    swoole_test::coroutine_socket_connect_timeout();
-}
-
-TEST(Coroutine, SocketConnect03)
-{
-    swoole_test::coroutine_socket_connect_with_dns();
-}
-
-TEST(Coroutine, SocketRecv01)
-{
-    swoole_test::coroutine_socket_recv_success();
-}
-
-TEST(Coroutine, SocketRecv02)
-{
-    swoole_test::coroutine_socket_recv_fail();
-}
-
-TEST(Coroutine, SocketBind01)
-{
-    swoole_test::coroutine_socket_bind_success();
-}
-
-TEST(Coroutine, SocketBind02)
-{
-    swoole_test::coroutine_socket_bind_fail();
-}
-
-TEST(Coroutine, SocketListen)
-{
-    swoole_test::coroutine_socket_listen();
-}
-
-TEST(Coroutine, SocketAccept)
-{
-    swoole_test::coroutine_socket_accept();
-}
-
-// TEST(Server, Create)
-// {
-//     EXPECT_EQ(0, swoole_test::server_test());
-// }
 
 int main(int argc, char **argv)
 {
     swoole_init();
+
+    pid_t server_pid = create_server();
+
     ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    int retval = RUN_ALL_TESTS();
+
+    kill(server_pid, SIGTERM);
+    int status = 0;
+    wait(&status);
+
+    return retval;
 }

@@ -2,13 +2,13 @@
 $serv = new swoole_server("0.0.0.0", 9501);
 
 $context = new ZMQContext();
-    
+
 $sender = new ZMQSocket($context, ZMQ::SOCKET_PUSH);
 $sender->bind("tcp://*:5557");
-    
+
 $receiver = new ZMQSocket($context, ZMQ::SOCKET_PULL);
 $receiver->bind("tcp://*:5558");
-    
+
 function onZMQR()
 {
 	global $receiver;
@@ -27,21 +27,21 @@ $serv->set(array(
 $serv->on('workerStart', function($serv, $worker_id) {
 	global $sender;
     global $receiver;
-    
-    $rfd = $receiver->getsockopt(ZMQ::SOCKOPT_FD);  
+
+    $rfd = $receiver->getsockopt(ZMQ::SOCKOPT_FD);
     swoole_event_add($rfd, 'onZMQR', NULL , SWOOLE_EVENT_READ);
     echo "worker start\n";
 });
 
-$serv->on('connect', function ($serv, $fd, $from_id){
-    echo "[#".posix_getpid()."]\tClient@[$fd:$from_id]: Connect.\n";
+$serv->on('connect', function ($serv, $fd, $reactor_id){
+    echo "[#".posix_getpid()."]\tClient@[$fd:$reactor_id]: Connect.\n";
 });
 
-$serv->on('receive', function (swoole_server $serv, $fd, $from_id, $data) {
-	
+$serv->on('receive', function (swoole_server $serv, $fd, $reactor_id, $data) {
+
     $cmd = trim($data);
     echo "[#".posix_getpid()."]\tClient[$fd]: $data\n";
-    
+
     if($cmd == "zmqtest")
     {
         echo 'aaaaaaaaaaaa'. PHP_EOL;
@@ -51,8 +51,8 @@ $serv->on('receive', function (swoole_server $serv, $fd, $from_id, $data) {
     //$serv->close($fd);
 });
 
-$serv->on('close', function ($serv, $fd, $from_id) {
-    echo "[#".posix_getpid()."]\tClient@[$fd:$from_id]: Close.\n";
+$serv->on('close', function ($serv, $fd, $reactor_id) {
+    echo "[#".posix_getpid()."]\tClient@[$fd:$reactor_id]: Close.\n";
 });
 
 //$serv->start();

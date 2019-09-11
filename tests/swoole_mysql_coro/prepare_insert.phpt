@@ -4,14 +4,15 @@ swoole_mysql_coro: mysql prepare (insert)
 <?php require __DIR__ . '/../include/skipif.inc'; ?>
 --FILE--
 <?php
-require_once __DIR__ . '/../include/bootstrap.php';
+require __DIR__ . '/../include/bootstrap.php';
 
-use Swoole\Coroutine as co;
+use Swoole\Coroutine as Co;
 
-co::create(function () {
-    $db = new co\MySQL();
+Co::create(function () {
+    $db = new Co\MySQL();
     $server = array(
         'host' => MYSQL_SERVER_HOST,
+        'port' => MYSQL_SERVER_PORT,
         'user' => MYSQL_SERVER_USER,
         'password' => MYSQL_SERVER_PWD,
         'database' => MYSQL_SERVER_DB,
@@ -34,7 +35,8 @@ co::create(function () {
         echo "EXECUTE ERROR\n";
         return;
     }
-    assert($stmt->insert_id > 0);
+    Assert::assert($stmt->insert_id > 0);
+    Assert::assert($db->insert_id == $stmt->insert_id);
 });
 
 ?>

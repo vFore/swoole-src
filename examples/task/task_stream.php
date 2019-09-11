@@ -8,7 +8,7 @@ $serv->set(array(
 //    'message_queue_key' => 0x70001001,
 ));
 
-$serv->on('Receive', function(swoole_server $serv, $fd, $from_id, $data) {
+$serv->on('Receive', function(swoole_server $serv, $fd, $reactor_id, $data) {
 	//AsyncTask
     $data = trim($data);
     //$data = str_repeat('A', 8192*100);
@@ -23,11 +23,11 @@ $serv->on('Receive', function(swoole_server $serv, $fd, $from_id, $data) {
 	else
     {
         $res = $serv->taskwait($data, 10);
-        echo "Dispath SyncTask: result=".$res.PHP_EOL;       
+        echo "Dispath SyncTask: result=".$res.PHP_EOL;
     }
     //$serv->send($fd, "OK\n");
 });
-$serv->on('Task', function (swoole_server $serv, $task_id, $from_id, $data) {
+$serv->on('Task', function (swoole_server $serv, $task_id, $reactor_id, $data) {
     echo "#{$serv->worker_id}\tonTask: [PID={$serv->worker_pid}]: task_id=$task_id, data_len=".strlen($data).".".PHP_EOL;
     $serv->finish($data);
     return $data;

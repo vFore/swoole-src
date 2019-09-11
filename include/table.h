@@ -19,17 +19,16 @@
 #ifndef SW_TABLE_H_
 #define SW_TABLE_H_
 
+SW_EXTERN_C_BEGIN
+
 #include "atomic.h"
 #include "hashmap.h"
 #include "hash.h"
 
 typedef struct _swTableRow
 {
-#if SW_TABLE_USE_SPINLOCK
     sw_atomic_t lock;
-#else
-    pthread_mutex_t lock;
-#endif
+    pid_t lock_pid;
     /**
      * 1:used, 0:empty
      */
@@ -81,7 +80,7 @@ typedef struct
    uint8_t type;
    uint32_t size;
    swString* name;
-   uint16_t index;
+   size_t index;
 } swTableColumn;
 
 enum swoole_table_type
@@ -112,9 +111,9 @@ swTable* swTable_new(uint32_t rows_size, float conflict_proportion);
 size_t swTable_get_memory_size(swTable *table);
 int swTable_create(swTable *table);
 void swTable_free(swTable *table);
-int swTableColumn_add(swTable *table, char *name, int len, int type, int size);
-swTableRow* swTableRow_set(swTable *table, char *key, int keylen, swTableRow **rowlock);
-swTableRow* swTableRow_get(swTable *table, char *key, int keylen, swTableRow **rowlock);
+int swTableColumn_add(swTable *table, const char *name, int len, int type, int size);
+swTableRow* swTableRow_set(swTable *table, const char *key, int keylen, swTableRow **rowlock);
+swTableRow* swTableRow_get(swTable *table, const char *key, int keylen, swTableRow **rowlock);
 
 void swTable_iterator_rewind(swTable *table);
 swTableRow* swTable_iterator_current(swTable *table);
@@ -123,30 +122,51 @@ int swTableRow_del(swTable *table, char *key, int keylen);
 
 static sw_inline swTableColumn* swTableColumn_get(swTable *table, char *column_key, int keylen)
 {
-    return swHashMap_find(table->columns, column_key, keylen);
+    return (swTableColumn*) swHashMap_find(table->columns, column_key, keylen);
 }
 
 static sw_inline void swTableRow_lock(swTableRow *row)
 {
-#if SW_TABLE_USE_SPINLOCK
-    sw_spinlock(&row->lock);
-#else
-    pthread_mutex_lock(&row->lock);
-#endif
+    sw_atomic_t *lock = &row->lock;
+    uint32_t i, n;
+    while(1)
+    {
+        if (*lock == 0 && sw_atomic_cmp_set(lock, 0, 1))
+        {
+            _success: row->lock_pid = SwooleG.pid;
+            return;
+        }
+        if (SW_CPU_NUM > 1)
+        {
+            for (n = 1; n < SW_SPINLOCK_LOOP_N; n <<= 1)
+            {
+                for (i = 0; i < n; i++)
+                {
+                    sw_atomic_cpu_pause();
+                }
+                if (*lock == 0 && sw_atomic_cmp_set(lock, 0, 1))
+                {
+                    goto _success;
+                }
+            }
+        }
+        if (kill(row->lock_pid, 0) < 0 && errno == ESRCH)
+        {
+            *lock = 1;
+            goto _success;
+        }
+        swYield();
+    }
 }
 
 static sw_inline void swTableRow_unlock(swTableRow *row)
 {
-#if SW_TABLE_USE_SPINLOCK
     sw_spinlock_release(&row->lock);
-#else
-    pthread_mutex_unlock(&row->lock);
-#endif
 }
 
 typedef uint32_t swTable_string_length_t;
 
-static sw_inline void swTableRow_set_value(swTableRow *row, swTableColumn * col, void *value, int vlen)
+static sw_inline void swTableRow_set_value(swTableRow *row, swTableColumn * col, void *value, size_t vlen)
 {
     int8_t _i8;
     int16_t _i16;
@@ -180,7 +200,7 @@ static sw_inline void swTableRow_set_value(swTableRow *row, swTableColumn * col,
     default:
         if (vlen > (col->size - sizeof(swTable_string_length_t)))
         {
-            swWarn("[key=%s,field=%s]string value is too long.", row->key, col->name->str);
+            swWarn("[key=%s,field=%s]string value is too long", row->key, col->name->str);
             vlen = col->size - sizeof(swTable_string_length_t);
         }
         memcpy(row->data + col->index, &vlen, sizeof(swTable_string_length_t));
@@ -188,5 +208,7 @@ static sw_inline void swTableRow_set_value(swTableRow *row, swTableColumn * col,
         break;
     }
 }
+
+SW_EXTERN_C_END
 
 #endif /* SW_TABLE_H_ */

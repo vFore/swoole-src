@@ -4,7 +4,7 @@ swoole_http_client_coro: reuse defer client
 <?php require __DIR__ . '/../include/skipif.inc'; ?>
 --FILE--
 <?php
-require_once __DIR__ . '/../include/bootstrap.php';
+require __DIR__ . '/../include/bootstrap.php';
 go(function () {
     function createDeferCli(string $host, bool $ssl = false): Swoole\Coroutine\Http\Client
     {
@@ -22,27 +22,27 @@ go(function () {
     }
 
     $baidu = createDeferCli('www.baidu.com', true);
-    $qq = createDeferCli('www.qq.com');
+    $qq = createDeferCli('www.qq.com', true);
 
     //first
     $baidu->get('/');
     $qq->get('/');
     $baidu->recv(10);
     $qq->recv(10);
-    assert($baidu->statusCode === 200);
-    assert(stripos($baidu->body, 'baidu') !== false);
-    assert($qq->statusCode === 200);
-    assert(stripos($qq->body, 'tencent') !== false);
+    Assert::same($baidu->statusCode, 200);
+    Assert::assert(stripos($baidu->body, 'baidu') !== false);
+    Assert::same($qq->statusCode, 200);
+    Assert::assert(stripos($qq->body, 'tencent') !== false);
 
     //reuse
     $baidu->get('/duty/');
     $qq->get('/contract.shtml');
     $baidu->recv(10);
     $qq->recv(10);
-    assert($baidu->statusCode === 200);
-    assert(stripos($baidu->body, 'baidu') !== false);
-    assert($qq->statusCode === 200);
-    assert(stripos($qq->body, 'tencent') !== false);
+    Assert::same($baidu->statusCode, 200);
+    Assert::assert(stripos($baidu->body, 'baidu') !== false);
+    Assert::same($qq->statusCode, 200);
+    Assert::assert(stripos($qq->body, 'tencent') !== false);
 });
 ?>
 --EXPECT--

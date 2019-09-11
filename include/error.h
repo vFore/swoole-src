@@ -20,6 +20,11 @@
 enum swErrorCode
 {
     /**
+     * Prevent repetition with errno [syscall error]
+     */
+    SW_ERROR_START = 500,
+
+    /**
      * common error
      */
     SW_ERROR_MALLOC_FAIL = 501,
@@ -28,13 +33,16 @@ enum swErrorCode
     SW_ERROR_NAME_TOO_LONG,
     SW_ERROR_INVALID_PARAMS,
     SW_ERROR_QUEUE_FULL,
+    SW_ERROR_OPERATION_NOT_SUPPORT,
 
     SW_ERROR_FILE_NOT_EXIST = 700,
     SW_ERROR_FILE_TOO_LARGE,
     SW_ERROR_FILE_EMPTY,
     SW_ERROR_DNSLOOKUP_DUPLICATE_REQUEST,
     SW_ERROR_DNSLOOKUP_RESOLVE_FAILED,
+    SW_ERROR_DNSLOOKUP_RESOLVE_TIMEOUT,
     SW_ERROR_BAD_IPV6_ADDRESS,
+    SW_ERROR_UNREGISTERED_SIGNAL,
 
     /**
      * connection error
@@ -55,6 +63,7 @@ enum swErrorCode
     SW_ERROR_SSL_BAD_PROTOCOL,
 
     SW_ERROR_PACKAGE_LENGTH_TOO_LARGE = 1201,
+    SW_ERROR_PACKAGE_LENGTH_NOT_FOUND,
     SW_ERROR_DATA_LENGTH_TOO_LARGE,
 
     /**
@@ -62,28 +71,32 @@ enum swErrorCode
      */
     SW_ERROR_TASK_PACKAGE_TOO_BIG = 2001,
     SW_ERROR_TASK_DISPATCH_FAIL,
+    SW_ERROR_TASK_TIMEOUT,
 
     /**
      * http2 protocol error
      */
     SW_ERROR_HTTP2_STREAM_ID_TOO_BIG = 3001,
     SW_ERROR_HTTP2_STREAM_NO_HEADER,
+    SW_ERROR_HTTP2_STREAM_NOT_FOUND,
 
     /**
      * AIO
      */
-    SW_ERROR_AIO_BAD_REQUEST   = 4001,
+    SW_ERROR_AIO_BAD_REQUEST = 4001,
+    SW_ERROR_AIO_CANCELED,
 
     /**
-     * Client
+     * Client & Socket
      */
     SW_ERROR_CLIENT_NO_CONNECTION = 5001,
+    SW_ERROR_SOCKET_CLOSED,
 
     SW_ERROR_SOCKS5_UNSUPPORT_VERSION = 7001,
     SW_ERROR_SOCKS5_UNSUPPORT_METHOD,
     SW_ERROR_SOCKS5_AUTH_FAILED,
     SW_ERROR_SOCKS5_SERVER_ERROR,
-    
+
     SW_ERROR_HTTP_PROXY_HANDSHAKE_ERROR = 8001,
     SW_ERROR_HTTP_INVALID_PROTOCOL,
 
@@ -102,9 +115,10 @@ enum swErrorCode
     SW_ERROR_SERVER_TOO_MANY_LISTEN_PORT,
     SW_ERROR_SERVER_PIPE_BUFFER_FULL,
     SW_ERROR_SERVER_NO_IDLE_WORKER,
-
     SW_ERROR_SERVER_ONLY_START_ONE,
     SW_ERROR_SERVER_SEND_IN_MASTER,
+    SW_ERROR_SERVER_INVALID_REQUEST,
+    SW_ERROR_SERVER_CONNECT_FAIL,
 
     /**
      * Process exit timeout, forced to end.
@@ -114,7 +128,10 @@ enum swErrorCode
     /**
      * Coroutine
      */
-    SW_ERROR_CO_MUTEX_DOUBLE_UNLOCK = 10001,
+    SW_ERROR_CO_OUT_OF_COROUTINE = 10001,
+    SW_ERROR_CO_HAS_BEEN_BOUND,
+
+    SW_ERROR_CO_MUTEX_DOUBLE_UNLOCK,
     SW_ERROR_CO_BLOCK_OBJECT_LOCKED,
     SW_ERROR_CO_BLOCK_OBJECT_WAITING,
     SW_ERROR_CO_YIELD_FAILED,
@@ -127,8 +144,10 @@ enum swErrorCode
     SW_ERROR_CO_STD_THREAD_LINK_ERROR,
     SW_ERROR_CO_DISABLED_MULTI_THREAD,
 
+    SW_ERROR_END
 };
 
-void swoole_throw_error(enum swErrorCode code);
+const char* swoole_strerror(int code);
+void swoole_throw_error(int code);
 
 #endif /* SW_ERRNO_H_ */

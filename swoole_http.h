@@ -16,28 +16,44 @@
  +----------------------------------------------------------------------+
  */
 
-#ifndef SWOOLE_HTTP_H_
-#define SWOOLE_HTTP_H_
+#pragma once
 
-#include "thirdparty/php_http_parser.h"
+#include "thirdparty/swoole_http_parser.h"
 #include "thirdparty/multipart_parser.h"
 
-#ifdef SW_USE_HTTP2
-#include <nghttp2/nghttp2.h>
+#ifdef SW_HAVE_ZLIB
+#include <zlib.h>
+#define SW_ZLIB_ENCODING_RAW        -0xf
+#define SW_ZLIB_ENCODING_GZIP       0x1f
+#define SW_ZLIB_ENCODING_DEFLATE    0x0f
+#define SW_ZLIB_ENCODING_ANY        0x2f
 #endif
 
-enum http_response_flag
+#ifdef SW_USE_HTTP2
+#include "thirdparty/nghttp2/nghttp2.h"
+#endif
+
+enum http_header_flag
 {
-    HTTP_RESPONSE_SERVER           = 1u << 1,
-    HTTP_RESPONSE_CONNECTION       = 1u << 2,
-    HTTP_RESPONSE_CONTENT_LENGTH   = 1u << 3,
-    HTTP_RESPONSE_DATE             = 1u << 4,
-    HTTP_RESPONSE_CONTENT_TYPE     = 1u << 5,
+    HTTP_HEADER_SERVER            = 1u << 1,
+    HTTP_HEADER_CONNECTION        = 1u << 2,
+    HTTP_HEADER_CONTENT_LENGTH    = 1u << 3,
+    HTTP_HEADER_DATE              = 1u << 4,
+    HTTP_HEADER_CONTENT_TYPE      = 1u << 5,
+    HTTP_HEADER_TRANSFER_ENCODING = 1u << 6,
+    HTTP_HEADER_ACCEPT_ENCODING = 1u << 7,
 };
 
-typedef struct
+enum http_compress_method
 {
-    enum php_http_method method;
+    HTTP_COMPRESS_NONE,
+    HTTP_COMPRESS_GZIP,
+    HTTP_COMPRESS_DEFLATE,
+    HTTP_COMPRESS_BR,
+};
+
+struct http_request
+{
     int version;
     char *path;
     uint32_t path_len;
@@ -45,188 +61,287 @@ typedef struct
     uint32_t ext_len;
     uint8_t post_form_urlencoded;
 
-    swString *post_buffer;
-    uint32_t post_length;
-
-    zval *zobject;
-    zval *zserver;
-    zval *zheader;
-    zval *zget;
-    zval *zpost;
-    zval *zcookie;
-    zval *zrequest;
-    zval *zfiles;
-    zval *ztmpfiles;
-#if PHP_MAJOR_VERSION >= 7
-    zval _zobject;
-    zval _zrequest;
-    zval _zserver;
-    zval _zheader;
-    zval _zget;
-    zval _zpost;
-    zval _zfiles;
-    zval _zcookie;
-    zval _ztmpfiles;
+    zval zdata;
+    size_t body_length;
+#ifdef SW_USE_HTTP2
+    swString *h2_data_buffer;
 #endif
-} http_request;
 
-typedef struct
+    // Notice: Do not change the order
+    zval *zobject;
+    zval _zobject;
+    zval *zserver;
+    zval _zserver;
+    zval *zheader;
+    zval _zheader;
+    zval *zget;
+    zval _zget;
+    zval *zpost;
+    zval _zpost;
+    zval *zcookie;
+    zval _zcookie;
+    zval *zfiles;
+    zval _zfiles;
+    zval *ztmpfiles;
+    zval _ztmpfiles;
+};
+
+struct http_response
 {
-    enum php_http_method method;
+    enum swoole_http_method method;
     int version;
     int status;
+    char* reason;
+
+    // Notice: Do not change the order
     zval *zobject;
-    zval *zheader;
-    zval *zcookie;
-    zval *ztrailer;
-
-#if PHP_MAJOR_VERSION >= 7
     zval _zobject;
+    zval *zheader;
     zval _zheader;
+    zval *zcookie;
     zval _zcookie;
+    zval *ztrailer;
     zval _ztrailer;
-#endif
-} http_response;
+};
 
-typedef struct
+struct http_context
 {
     int fd;
-
+    uint32_t completed :1;
     uint32_t end :1;
     uint32_t send_header :1;
-    uint32_t gzip_enable :1;
-    uint32_t gzip_level :4;
+#ifdef SW_HAVE_ZLIB
+    uint32_t enable_compression :1;
+    uint32_t accept_compression :1;
+#endif
     uint32_t chunk :1;
     uint32_t keepalive :1;
-    uint32_t http2 :1;
+    uint32_t websocket :1;
     uint32_t upgrade :1;
     uint32_t detached :1;
+    uint32_t parse_cookie :1;
+    uint32_t parse_body :1;
+    uint32_t parse_files :1;
+    uint32_t co_socket :1;
 
-    uint32_t request_read :1;
-    uint32_t current_header_name_allocated :1;
-    uint32_t content_sender_initialized :1;
-
-#ifdef SW_USE_HTTP2
-    uint8_t priority;
-    uint32_t stream_id;
+#ifdef SW_HAVE_ZLIB
+    int8_t compression_level;
+    int8_t compression_method;
 #endif
 
+#ifdef SW_USE_HTTP2
+    void* stream;
+#endif
     http_request request;
     http_response response;
 
-    php_http_parser parser;
+    swoole_http_parser parser;
     multipart_parser *mt_parser;
-    struct _swoole_http_client *client;
 
     uint16_t input_var_num;
     char *current_header_name;
     size_t current_header_name_len;
     char *current_input_name;
+    size_t current_input_name_len;
     char *current_form_data_name;
     size_t current_form_data_name_len;
-    char *current_form_data_value;
     zval *current_multipart_header;
 
-} http_context;
+    const char *upload_tmp_dir;
 
-typedef struct _swoole_http_client
-{
-    int fd;
-    uint32_t http2 :1;
+    void *private_data;
+    void *private_data_2;
+    bool (*send)(http_context* ctx, const char *data, size_t length);
+    bool (*sendfile)(http_context* ctx, const char *file, uint32_t l_file, off_t offset, size_t length);
+    bool (*close)(http_context* ctx);
+};
 
-#ifdef SW_USE_HTTP2
-    uint32_t init :1;
-    swHashMap *streams;
-    nghttp2_hd_inflater *deflater;
-    nghttp2_hd_inflater *inflater;
-    uint32_t window_size;
-    uint32_t remote_window_size;
-#endif
-
-} swoole_http_client;
-
-/**
- * WebSocket
- */
-int swoole_websocket_onMessage(swEventData *);
-int swoole_websocket_onHandshake(swListenPort *port, http_context *);
-void swoole_websocket_onOpen(http_context *);
-void swoole_websocket_onRequest(http_context *);
-
-/**
- * Http Context
- */
-http_context* swoole_http_context_new(swoole_http_client* client TSRMLS_DC);
-void swoole_http_context_free(http_context *ctx TSRMLS_DC);
-int swoole_http_parse_form_data(http_context *ctx, const char *boundary_str, int boundary_len TSRMLS_DC);
-
-#define swoole_http_server_array_init(name, class)    SW_MAKE_STD_ZVAL(z##name);\
-array_init(z##name);\
-zend_update_property(swoole_http_##class##_class_entry_ptr, z##class##_object, ZEND_STRL(#name), z##name TSRMLS_CC);\
-ctx->class.z##name = sw_zend_read_property(swoole_http_##class##_class_entry_ptr, z##class##_object, ZEND_STRL(#name), 0 TSRMLS_CC);\
-sw_copy_to_stack(ctx->class.z##name, ctx->class._z##name);\
-sw_zval_ptr_dtor(&z##name);\
-z##name = ctx->class.z##name;
-
-#define http_strncasecmp(const_str, at, length) ((length >= sizeof(const_str)-1) &&\
-        (strncasecmp(at, ZEND_STRL(const_str)) == 0))
-
-#ifdef SW_USE_HTTP2
-/**
- * Http v2
- */
-int swoole_http2_onFrame(swoole_http_client *client, swEventData *req);
-int swoole_http2_do_response(http_context *ctx, swString *body);
-void swoole_http2_free(swoole_http_client *client);
-#endif
-
-extern zend_class_entry swoole_http_server_ce;
-extern zend_class_entry *swoole_http_server_class_entry_ptr;
-
-extern zend_class_entry swoole_http_response_ce;
-extern zend_class_entry *swoole_http_response_class_entry_ptr;
-
-extern zend_class_entry swoole_http_request_ce;
-extern zend_class_entry *swoole_http_request_class_entry_ptr;
+extern zend_class_entry *swoole_http_server_ce;
+extern zend_class_entry *swoole_http_request_ce;
+extern zend_class_entry *swoole_http_response_ce;
 
 extern swString *swoole_http_buffer;
+extern swString *swoole_http_form_data_buffer;
 #ifdef SW_HAVE_ZLIB
 extern swString *swoole_zlib_buffer;
-int swoole_http_response_compress(swString *body, int level);
 #endif
 
-static sw_inline int http_parse_set_cookies(const char *at, size_t length, zval *cookies, zval *set_cookie_headers)
-{
-    int l_cookie = 0;
-    char *p = (char*) memchr(at, ';', length);
-    if (p)
-    {
-        l_cookie = p - at;
-    }
-    else
-    {
-        l_cookie = length;
-    }
+#define http_strncasecmp(const_str, at, length) \
+    ((length >= sizeof(const_str)-1) && \
+    (strncasecmp(at, ZEND_STRL(const_str)) == 0))
 
-    p = (char*) memchr(at, '=', length);
-    int l_key = 0;
+http_context* swoole_http_context_new(int fd);
+http_context* swoole_http_context_get(zval *zobject, const bool check_end);
+void swoole_http_context_free(http_context *ctx);
+static sw_inline zval* swoole_http_init_and_read_property(zend_class_entry *ce, zval *zobject, zval** zproperty_store_pp, const char *name, size_t name_len)
+{
+    if (UNEXPECTED(!*zproperty_store_pp))
+    {
+        // Notice: swoole http server properties can not be unset anymore, so we can read it without checking
+        zval rv, *property = zend_read_property(ce, zobject, name, name_len, 0, &rv);
+        array_init(property);
+        *zproperty_store_pp = (zval *) (zproperty_store_pp + 1);
+        **zproperty_store_pp = *property;
+    }
+    return *zproperty_store_pp;
+}
+int swoole_http_parse_form_data(http_context *ctx, const char *boundary_str, int boundary_len);
+void swoole_http_parse_cookie(zval *array, const char *at, size_t length);
+
+void swoole_http_server_init_context(swServer *serv, http_context *ctx);
+
+size_t swoole_http_requset_parse(http_context *ctx, const char *data, size_t length);
+
+bool swoole_http_response_set_header(http_context *ctx, const char *k, size_t klen, const char *v, size_t vlen, bool ucwords);
+void swoole_http_response_end(http_context *ctx, zval *zdata, zval *return_value);
+
+#ifdef SW_HAVE_ZLIB
+int swoole_http_response_compress(swString *body, int method, int level);
+void swoole_http_get_compression_method(http_context *ctx, const char *accept_encoding, size_t length);
+const char* swoole_http_get_content_encoding(http_context *ctx);
+
+static sw_inline voidpf php_zlib_alloc(voidpf opaque, uInt items, uInt size)
+{
+    return (voidpf) safe_emalloc(items, size, 0);
+}
+
+static sw_inline void php_zlib_free(voidpf opaque, voidpf address)
+{
+    efree((void *)address);
+}
+#endif
+
+static int http_parse_set_cookies(const char *at, size_t length, zval *cookies, zval *zset_cookie_headers)
+{
+    const char *key = at;
+    zval val;
+    size_t key_len = 0, val_len = 0;
+    const char *p, *eof = at + length;
+    // key
+    p = (char *) memchr(at, '=', length);
     if (p)
     {
-        l_key = p - at;
+        key_len = p - at;
     }
-    if (l_key == 0 || l_key >= SW_HTTP_COOKIE_KEYLEN || l_key >= length - 1)
+    if (key_len == 0 || key_len >= length - 1)
     {
-        swWarn("cookie key format is wrong.");
+        swWarn("cookie key format is wrong");
         return SW_ERR;
     }
-
-    char keybuf[SW_HTTP_COOKIE_KEYLEN];
-    memcpy(keybuf, at, l_key);
-    keybuf[l_key] = '\0';
-    sw_add_assoc_stringl_ex(cookies, keybuf, l_key + 1, (char*) at + l_key + 1, l_cookie - l_key - 1, 1);
-    sw_add_assoc_stringl_ex(set_cookie_headers, keybuf, l_key + 1, (char*) at, length, 1);
-
+    if (key_len > SW_HTTP_COOKIE_KEYLEN)
+    {
+        swWarn("cookie[%.8s...] name length %zu is exceed the max name len %d", key, key_len, SW_HTTP_COOKIE_KEYLEN);
+        return SW_ERR;
+    }
+    add_next_index_stringl(zset_cookie_headers, (char *) at, length);
+    // val
+    p++;
+    eof = (char*) memchr(p, ';', at + length - p);
+    if (!eof)
+    {
+        eof = at + length;
+    }
+    val_len = eof - p;
+    if (val_len > SW_HTTP_COOKIE_VALLEN)
+    {
+        swWarn("cookie[%.*s]'s value[v=%.8s...] length %d is exceed the max value len %d", (int) key_len, key, p, (int) val_len, SW_HTTP_COOKIE_VALLEN);
+        return SW_ERR;
+    }
+    ZVAL_STRINGL(&val, p, val_len);
+    Z_STRLEN(val) = php_url_decode(Z_STRVAL(val), val_len);
+    add_assoc_zval_ex(cookies, at, key_len, &val);
     return SW_OK;
 }
 
-#endif /* SWOOLE_HTTP_H_ */
+int swoole_websocket_onMessage(swServer *serv, swEventData *req);
+int swoole_websocket_onHandshake(swServer *serv, swListenPort *port, http_context *ctx);
+void swoole_websocket_onOpen(http_context *ctx);
+void swoole_websocket_onRequest(http_context *ctx);
+bool swoole_websocket_handshake(http_context *ctx);
+
+#ifdef SW_USE_HTTP2
+int swoole_http2_server_onFrame(swServer *serv, swConnection *conn, swEventData *req);
+int swoole_http2_server_do_response(http_context *ctx, swString *body);
+void swoole_http2_server_session_free(swConnection *conn);
+void swoole_http2_response_end(http_context *ctx, zval *zdata, zval *return_value);
+int swoole_http2_server_ping(http_context *ctx);
+
+namespace swoole { namespace http2 {
+//-----------------------------------namespace begin--------------------------------------------
+class headers
+{
+public:
+    headers(size_t size) : size(size), index(0)
+    {
+        nvs = (nghttp2_nv *) ecalloc(size, sizeof(nghttp2_nv));
+    }
+
+    inline nghttp2_nv* get()
+    {
+        return nvs;
+    }
+
+    inline size_t len()
+    {
+        return index;
+    }
+
+    void reserve_one()
+    {
+        index++;
+    }
+
+    inline void add(
+        size_t index,
+        const char *name, size_t name_len,
+        const char *value, size_t value_len,
+        const uint8_t flags = NGHTTP2_NV_FLAG_NONE)
+    {
+        if (sw_likely(index < size || nvs[index].name == nullptr))
+        {
+            nghttp2_nv *nv = &nvs[index];
+            name = zend_str_tolower_dup(name, name_len); // auto to lower
+            nv->name = (uchar*) name;
+            nv->namelen = name_len;
+            nv->value = (uchar*) emalloc(value_len);
+            memcpy(nv->value, value, value_len);
+            nv->valuelen = value_len;
+            nv->flags = flags | NGHTTP2_NV_FLAG_NO_COPY_NAME | NGHTTP2_NV_FLAG_NO_COPY_VALUE;
+            swTraceLog(SW_TRACE_HTTP2,"name=(%zu)[%.*s], value=(%zu)[%.*s]", name_len, (int) name_len, name, value_len, (int) value_len, value);
+        }
+        else
+        {
+            php_swoole_fatal_error(E_WARNING, "unexpect http2 header [%.*s] (duplicated or overflow)", (int) name_len, name);
+        }
+    }
+
+    inline void add(
+        const char *name, size_t name_len,
+        const char *value, size_t value_len,
+        const uint8_t flags = NGHTTP2_NV_FLAG_NONE
+    )
+    {
+        add(index++, name, name_len, value, value_len, flags);
+    }
+
+    ~headers()
+    {
+        for (size_t i = 0; i < size; ++i)
+        {
+            if (sw_likely(nvs[i].name/* && nvs[i].value */))
+            {
+                efree((void *) nvs[i].name);
+                efree((void *) nvs[i].value);
+            }
+        }
+        efree(nvs);
+    }
+
+private:
+    nghttp2_nv *nvs;
+    size_t size;
+    size_t index;
+};
+//-----------------------------------namespace end--------------------------------------------
+}}
+#endif

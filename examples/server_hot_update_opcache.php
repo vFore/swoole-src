@@ -27,12 +27,12 @@ function my_onTimer($serv, $interval)
     echo "Server:Timer Call.Interval=$interval\n";
 }
 
-function my_onClose($serv, $fd, $from_id)
+function my_onClose($serv, $fd, $reactor_id)
 {
 	//echo "Client: fd=$fd is closed.\n";
 }
 
-function my_onConnect($serv, $fd, $from_id)
+function my_onConnect($serv, $fd, $reactor_id)
 {
 	//throw new Exception("hello world");
 // 	echo "Client:Connect.\n";
@@ -61,19 +61,19 @@ function my_onWorkerStop($serv, $worker_id)
 	echo "WorkerStop[$worker_id]|pid=".posix_getpid().".\n";
 }
 
-function my_onReceive(swoole_server $serv, $fd, $from_id, $data)
+function my_onReceive(swoole_server $serv, $fd, $reactor_id, $data)
 {
 	$cmd = trim($data);
-    if($cmd == "reload") 
+    if($cmd == "reload")
     {
 		$serv->reload($serv);
 	}
-	elseif($cmd == "task") 
+	elseif($cmd == "task")
     {
 		$task_id = $serv->task("hello world", 0);
 		echo "Dispath AsyncTask: id=$task_id\n";
 	}
-	elseif($cmd == "info") 
+	elseif($cmd == "info")
     {
 		$info = $serv->connection_info($fd);
 		$serv->send($fd, 'Info: '.var_export($info, true).PHP_EOL);
@@ -101,23 +101,23 @@ function my_onReceive(swoole_server $serv, $fd, $from_id, $data)
     {
         hello_no_exists();
     }
-	elseif($cmd == "shutdown") 
+	elseif($cmd == "shutdown")
     {
 		$serv->shutdown();
 	}
-	else 
+	else
 	{
         global $class;
         $data .= $class->getData();
-		$serv->send($fd, 'Swoole: '.$data, $from_id);
+		$serv->send($fd, 'Swoole: '.$data, $reactor_id);
 		//$serv->close($fd);
 	}
-	//echo "Client:Data. fd=$fd|from_id=$from_id|data=$data";
+	//echo "Client:Data. fd=$fd|reactor_id=$reactor_id|data=$data";
 	//$serv->deltimer(800);
-	//swoole_server_send($serv, $other_fd, "Server: $data", $other_from_id);
+	//swoole_server_send($serv, $other_fd, "Server: $data", $other_reactor_id);
 }
 
-function my_onTask(swoole_server $serv, $task_id, $from_id, $data)
+function my_onTask(swoole_server $serv, $task_id, $reactor_id, $data)
 {
     echo "AsyncTask[PID=".posix_getpid()."]: task_id=$task_id.".PHP_EOL;
     $serv->finish("OK");
@@ -142,4 +142,3 @@ $serv->on('WorkerError', function($serv, $worker_id, $worker_pid, $exit_code) {
     echo "worker abnormal exit. WorkerId=$worker_id|Pid=$worker_pid|ExitCode=$exit_code\n";
 });
 $serv->start();
-

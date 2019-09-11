@@ -4,9 +4,9 @@ swoole_coroutine: eval
 <?php require  __DIR__ . '/../include/skipif.inc'; ?>
 --FILE--
 <?php
-require_once __DIR__ . '/../include/bootstrap.php';
+require __DIR__ . '/../include/bootstrap.php';
 
-assert(Co::stats()['coroutine_num'] === 0);
+Assert::same(Co::stats()['coroutine_num'], 0);
 
 go(function () {
     echo "start 1\n";

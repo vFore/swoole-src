@@ -4,7 +4,7 @@ swoole_http2_client_coro: http2 error and dead wait
 <?php require __DIR__ . '/../include/skipif.inc'; ?>
 --FILE--
 <?php
-require_once __DIR__ . '/../include/bootstrap.php';
+require __DIR__ . '/../include/bootstrap.php';
 go(function () {
     $domain = 'www.zhihu.com';
     $cli = new Swoole\Coroutine\Http2\Client($domain, 443, true);
@@ -12,9 +12,10 @@ go(function () {
         'timeout' => -1,
         'ssl_host_name' => $domain
     ]);
-    $cli->connect();
+    Assert::true($cli->connect());
+    Assert::true($cli->connected);
 
-    $req = new swoole_http2_request;
+    $req = new Swoole\Http2\Request;
     $req->path = '/terms/privacy';
     $req->headers = [
         'Host' => $domain,
@@ -25,23 +26,28 @@ go(function () {
     /**@var $response swoole_http2_response */
     $i = 4;
     while ($i--) {
-        assert($cli->send($req));
+        Assert::assert($cli->send($req));
     }
     $stream_map = [];
+    $responses_headers_count_map = [];
     $i = 0;
-    while (true) {
+    while ($cli->connected) {
         $response = $cli->recv(0.1); // it's for the test, you should make timeout bigger
         if ($response) {
             echo "$response->statusCode\n";
-            assert(strpos($response->body, 'Cookie') !== false);
+            $responses_headers_count_map[] = count($response->headers);
+            Assert::contains($response->data, 'Cookie');
             $stream_map[] = $response->streamId;
             if (++$i === 4) {
                 break;
             }
         }
     }
-    assert(empty(array_diff([1, 3, 5, 7], $stream_map)));
+    Assert::assert(empty(array_diff([1, 3, 5, 7], $stream_map)));
+    Assert::same(count(array_unique($responses_headers_count_map)), 1);
+    Assert::assert($responses_headers_count_map[0] > 10);
 });
+swoole_event::wait();
 ?>
 --EXPECT--
 200

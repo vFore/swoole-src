@@ -1,25 +1,17 @@
 --TEST--
 swoole_client_async: onBufferFull & onBufferEmpty
-
 --SKIPIF--
 <?php require  __DIR__ . '/../include/skipif.inc'; ?>
---INI--
-assert.active=1
-assert.warning=1
-assert.bail=0
-assert.quiet_eval=0
-
-
 --FILE--
 <?php
-require_once __DIR__ . '/../include/bootstrap.php';
+require __DIR__ . '/../include/bootstrap.php';
 
 $port = get_one_free_port();
 
 $pm = new ProcessManager;
 $pm->parentFunc = function ($pid) use ($port)
 {
-    Swoole\Async::set(['log_level' => 5, 'display_errors' => false]);
+    Co::set(['log_level' => 5, 'display_errors' => false]);
     $client = new Swoole\Client(SWOOLE_SOCK_TCP, SWOOLE_SOCK_ASYNC);
     $client->set(['socket_buffer_size' => 1 * 1024 * 1024,]);
     $client->buffer = array();
@@ -39,7 +31,7 @@ $pm->parentFunc = function ($pid) use ($port)
     {
         $cli->send(pack('N', 8) . 'shutdown');
         $cli->close();
-        assert($data === md5_file(TEST_IMAGE));
+        Assert::same($data, md5_file(TEST_IMAGE));
     });
 
     $client->on("error", function($cli){

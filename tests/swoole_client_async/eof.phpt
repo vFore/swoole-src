@@ -2,16 +2,9 @@
 swoole_client_async: eof protocol [async]
 --SKIPIF--
 <?php require __DIR__ . '/../include/skipif.inc'; ?>
---INI--
-assert.active=1
-assert.warning=1
-assert.bail=0
-assert.quiet_eval=0
-
-
 --FILE--
 <?php
-require_once __DIR__ . '/../include/bootstrap.php';
+require __DIR__ . '/../include/bootstrap.php';
 
 $pm = new ProcessManager;
 $port = get_one_free_port();
@@ -32,7 +25,7 @@ $pm->parentFunc = function ($pid) use ($port)
         //小包
         if ($i <= 1000)
         {
-            assert($pkg and strlen($pkg) <= 2048);
+            Assert::assert($pkg and strlen($pkg) <= 2048);
             if ($i == 1000)
             {
                 echo "SUCCESS\n";
@@ -42,7 +35,7 @@ $pm->parentFunc = function ($pid) use ($port)
         //慢速发送
         elseif ($i <= 1100)
         {
-            assert($pkg and strlen($pkg) <= 8192);
+            Assert::assert($pkg and strlen($pkg) <= 8192);
             if ($i == 1100)
             {
                 echo "SUCCESS\n";
@@ -52,11 +45,11 @@ $pm->parentFunc = function ($pid) use ($port)
         //大包
         else
         {
-            assert($pkg != false);
+            Assert::assert($pkg != false);
             $_pkg = unserialize($pkg);
-            assert(is_array($_pkg));
-            assert($_pkg['i'] == $i - 1100 - 1);
-            assert($_pkg['data'] <= 256 * 1024);
+            Assert::assert(is_array($_pkg));
+            Assert::same($_pkg['i'], $i - 1100 - 1);
+            Assert::assert($_pkg['data'] <= 256 * 1024);
             if ($i == 2100) {
                 echo "SUCCESS\n";
                 $cli->close();
@@ -82,7 +75,7 @@ $pm->parentFunc = function ($pid) use ($port)
 
 $pm->childFunc = function () use ($pm, $port)
 {
-    $serv = new swoole_server("127.0.0.1", $port, SWOOLE_BASE);
+    $serv = new swoole_server('127.0.0.1', $port, SWOOLE_BASE);
     $serv->set(array(
         'package_eof' => "\r\n\r\n",
         'open_eof_check' => true,

@@ -4,7 +4,7 @@ swoole_coroutine_util: fread
 <?php require __DIR__ . '/../include/skipif.inc'; ?>
 --FILE--
 <?php
-require_once __DIR__ . '/../include/bootstrap.php';
+require __DIR__ . '/../include/bootstrap.php';
 
 use Swoole\Coroutine as co;
 
@@ -13,7 +13,7 @@ co::create(function () {
     if ($fp)
     {
         $data = co::fread($fp);
-        assert(md5($data) == md5_file(TEST_IMAGE));
+        Assert::same(md5($data), md5_file(TEST_IMAGE));
     }
     else
     {
